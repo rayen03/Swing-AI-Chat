@@ -7,6 +7,8 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.aichatapp.Server.logger;
+
 public class ChatService {
     public int createChatSession(int userId, String sessionName) {
         String sql = "INSERT INTO chat_sessions (user_id, session_name) VALUES (?, ?)";
@@ -30,7 +32,10 @@ public class ChatService {
 
     public boolean saveMessage(int sessionId, String userMessage, String aiResponse) {
         String sql = "INSERT INTO chat_messages (session_id, user_message, ai_response, is_user_message) VALUES (?, ?, ?, ?)";
-
+        if (!sessionExists(sessionId)) {
+            logger.error("Attempt to save message to non-existent session: {}", sessionId);
+            return false;
+        }
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, sessionId);
@@ -73,5 +78,16 @@ public class ChatService {
             e.printStackTrace();
         }
         return messages;
+    }
+    private boolean sessionExists(int sessionId) {
+        String sql = "SELECT 1 FROM chat_sessions WHERE session_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, sessionId);
+            return stmt.executeQuery().next();
+        } catch (SQLException e) {
+            logger.error("Session validation failed", e);
+            return false;
+        }
     }
 }

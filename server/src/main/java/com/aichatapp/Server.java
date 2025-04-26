@@ -5,7 +5,15 @@ import com.aichatapp.models.DatabaseConnection;
 import com.aichatapp.services.ChatService;
 import com.aichatapp.services.UserService;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,6 +24,7 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,7 +39,7 @@ public class Server {
 
     public Server() {
         try {
-            // Initialize database connection first
+            // Init db conn
             DatabaseConnection.validateConfiguration();
             logger.info("Database configuration validated");
 
@@ -201,6 +210,15 @@ public class Server {
 
         private void handleMessage(JsonObject request, JsonObject response) {
             int sessionId = request.get("sessionId").getAsInt();
+
+            // Add validation
+            if (sessionId <= 0) {
+                logger.error("Invalid session ID: {}", sessionId);
+                response.addProperty("success", false);
+                response.addProperty("error", "Invalid chat session");
+                return;
+            }
+
             String message = request.get("message").getAsString();
 
             try {
@@ -208,9 +226,8 @@ public class Server {
                 boolean saveResult = chatService.saveMessage(sessionId, message, aiResponse);
                 response.addProperty("success", saveResult);
                 response.addProperty("aiResponse", aiResponse);
-                logger.debug("Message processed for session {}: {}", sessionId, message);
             } catch (Exception e) {
-                logger.error("Failed to process message for session {}", sessionId, e);
+                logger.error("Message handling failed", e);
                 response.addProperty("success", false);
                 response.addProperty("error", "Message processing error");
             }
@@ -232,15 +249,128 @@ public class Server {
         }
 
         private String callAIApi(String message) {
-            try {
-                // Implement actual API call here
-                // This is a placeholder implementation
-                String response = "This is a simulated AI response to: " + message;
-                logger.debug("AI API called with message: {}", message);
-                return response;
+            final String API_URL = "https://api.groq.com/openai/v1/chat/completions";
+            final String API_KEY = "api key";
+            final String MODEL = "llama-3-3-70b-versatile";
+            final Logger logger = LoggerFactory.getLogger(Server.class);
+
+            // 1. Validate inputs and configuration
+            if (message == null || message.trim().isEmpty()) {
+                logger.error("Empty message received");
+                return "Error: Message cannot be empty";
+            }
+
+            if (API_KEY == null || API_KEY.isEmpty()) {
+                logger.error("API key not configured");
+                return "Error: API configuration issue";
+            }
+
+            // 2. Create HTTP client with timeouts
+            RequestConfig config = RequestConfig.custom()
+                    .setConnectTimeout(10000)  // 10 seconds
+                    .setSocketTimeout(30000)   // 30 seconds
+                    .build();
+
+            try (CloseableHttpClient httpClient = HttpClients.custom()
+                    .setDefaultRequestConfig(config)
+                    .build()) {
+
+                // 3. Build the request
+                HttpPost httpPost = new HttpPost(API_URL);
+                httpPost.setHeader("Content-Type", "application/json");
+                httpPost.setHeader("Authorization", "Bearer " + API_KEY);
+                httpPost.setHeader("Accept", "application/json");
+
+                // Construct the request body
+                JsonObject requestBody = new JsonObject();
+                requestBody.addProperty("model", MODEL);
+                requestBody.addProperty("temperature", 0.7);
+                requestBody.addProperty("max_tokens", 1024);
+
+                JsonObject systemMessage = new JsonObject();
+                systemMessage.addProperty("role", "system");
+                systemMessage.addProperty("content", "You are a helpful AI assistant.");
+
+                JsonObject userMessage = new JsonObject();
+                userMessage.addProperty("role", "user");
+                userMessage.addProperty("content", message);
+
+                JsonArray messages = new JsonArray();
+                messages.add(systemMessage);
+                messages.add(userMessage);
+
+                requestBody.add("messages", messages);
+
+                logger.debug("Sending request to {} with model {}", API_URL, MODEL);
+                logger.trace("Request body: {}", requestBody.toString());
+
+                httpPost.setEntity(new StringEntity(requestBody.toString()));
+
+                // 4. Execute and process response
+                try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
+                    int statusCode = response.getStatusLine().getStatusCode();
+                    String responseBody = EntityUtils.toString(response.getEntity());
+
+                    logger.debug("Received status code: {}", statusCode);
+                    logger.trace("Raw response: {}", responseBody);
+
+                    if (statusCode != 200) {
+                        logger.error("API request failed with status {}", statusCode);
+                        return parseErrorResponse(responseBody);
+                    }
+
+                    return parseSuccessResponse(responseBody);
+                }
+
+            } catch (IOException e) {
+                logger.error("Network error during API call", e);
+                return "Error: Network connection failed";
             } catch (Exception e) {
-                logger.error("AI API call failed", e);
-                return "Sorry, I couldn't process your request due to an error.";
+                logger.error("Unexpected error during API call", e);
+                return "Error: Processing failed";
+            }
+        }
+
+
+        private String parseErrorResponse(String responseBody) {
+            try {
+                JsonObject jsonResponse = new Gson().fromJson(responseBody, JsonObject.class);
+                if (jsonResponse != null && jsonResponse.has("error")) {
+                    JsonObject error = jsonResponse.getAsJsonObject("error");
+                    String errorMsg = error.has("message") ? error.get("message").getAsString() : "Unknown error";
+                    return "API Error: " + errorMsg;
+                }
+            } catch (Exception e) {
+                LoggerFactory.getLogger(Server.class).error("Failed to parse error response", e);
+            }
+            return "Error: Invalid API response";
+        }
+
+        private String parseSuccessResponse(String responseBody) {
+            try {
+                JsonObject jsonResponse = new Gson().fromJson(responseBody, JsonObject.class);
+
+                if (jsonResponse == null || !jsonResponse.has("choices")) {
+                    throw new IllegalStateException("Missing choices in response");
+                }
+
+                JsonArray choices = jsonResponse.getAsJsonArray("choices");
+                if (choices.size() == 0) {
+                    throw new IllegalStateException("Empty choices array");
+                }
+
+                JsonObject firstChoice = choices.get(0).getAsJsonObject();
+                JsonObject message = firstChoice.getAsJsonObject("message");
+
+                if (message == null || !message.has("content")) {
+                    throw new IllegalStateException("Missing message content");
+                }
+
+                return message.get("content").getAsString();
+
+            } catch (Exception e) {
+                LoggerFactory.getLogger(Server.class).error("Failed to parse API response", e);
+                return "Error: Could not process AI response";
             }
         }
     }
