@@ -110,6 +110,11 @@ public class ClientController {
     }
 
     public int createNewSession(String sessionName) {
+        if (currentUsername == null || currentUsername.isEmpty()) {
+            System.err.println("Cannot create session: Not logged in");
+            return -1;
+        }
+
         JsonObject request = new JsonObject();
         request.addProperty("action", "create_session");
         request.addProperty("username", currentUsername);

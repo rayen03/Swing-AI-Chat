@@ -30,7 +30,7 @@ public class UserService {
             int affectedRows = stmt.executeUpdate();
 
             if (affectedRows == 0) {
-                logger.error("Failed to create user - no rows affected");
+                logger.error("Failed to create user ");
                 return false;
             }
 

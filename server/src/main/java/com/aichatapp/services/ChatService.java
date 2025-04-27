@@ -31,29 +31,36 @@ public class ChatService {
     }
 
     public boolean saveMessage(int sessionId, String userMessage, String aiResponse) {
-        String sql = "INSERT INTO chat_messages (session_id, user_message, ai_response, is_user_message) VALUES (?, ?, ?, ?)";
+        // First check if the session exists to avoid foreign key constraint violation
         if (!sessionExists(sessionId)) {
-            logger.error("Attempt to save message to non-existent session: {}", sessionId);
+            logger.error("Attempt to save message to non-existent session ID: {}", sessionId);
             return false;
         }
+
+        String sql = "INSERT INTO chat_messages (session_id, user_message, ai_response, is_user_message) VALUES (?, ?, ?, ?)";
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+            // Save user message
             stmt.setInt(1, sessionId);
             stmt.setString(2, userMessage);
-            stmt.setString(3, aiResponse);
-            stmt.setBoolean(4, true);
+            stmt.setString(3, null);  // No AI response for user message
+            stmt.setBoolean(4, true); // This is a user message
             stmt.executeUpdate();
 
             // Save AI response as a separate message
-            stmt.setString(2, null);
+            stmt.setInt(1, sessionId);
+            stmt.setString(2, null);  // No user message for AI response
             stmt.setString(3, aiResponse);
-            stmt.setBoolean(4, false);
+            stmt.setBoolean(4, false); // This is an AI message
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error saving message to database", e);
             return false;
         }
     }
+
+
 
     public List<ChatMessage> getChatHistory(int sessionId) {
         List<ChatMessage> messages = new ArrayList<>();
