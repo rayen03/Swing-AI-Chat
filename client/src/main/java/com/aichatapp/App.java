@@ -104,31 +104,32 @@ public class App {
 
     private void handleNewSession() {
         String sessionName = JOptionPane.showInputDialog(frame, "Enter session name:");
-        if (sessionName != null && !sessionName.trim().isEmpty()) {
-            int sessionId = controller.createNewSession(sessionName);
-            if (sessionId != -1) {
-                chatView.addSession(sessionName);
-                chatView.clearChat();
-            }
+        int sessionId = controller.createNewSession(sessionName);
+        if (sessionId != -1) {
+            chatView.addSession(sessionName, sessionId);
+            chatView.clearChat();
+            controller.selectSession(sessionId);
         }
     }
-
     private void handleSessionSelection() {
         int selectedIndex = chatView.getSelectedSessionIndex();
         if (selectedIndex != -1) {
             String sessionName = chatView.getSelectedSessionName();
             int sessionId = controller.getSessionIdByName(sessionName);
 
-            if (sessionId != -1 && controller.selectSession(sessionId)) {
-                chatView.clearChat();
+            if (sessionId != -1) {
+                // This line is crucial - ensure the controller knows which session is selected
+                if (controller.selectSession(sessionId)) {
+                    chatView.clearChat();
 
-                // Load chat history for this session
-                ArrayList<ChatMessage> history = (ArrayList<ChatMessage>) controller.getChatHistory(sessionId);
-                for (ChatMessage message : history) {
-                    if (message.isUserMessage()) {
-                        chatView.appendMessage("You", message.getUserMessage());
-                    } else {
-                        chatView.appendMessage("AI Assistant", message.getAiResponse());
+                    // Load chat history for this session
+                    ArrayList<ChatMessage> history = (ArrayList<ChatMessage>) controller.getChatHistory(sessionId);
+                    for (ChatMessage message : history) {
+                        if (message.isUserMessage()) {
+                            chatView.appendMessage("You", message.getUserMessage());
+                        } else {
+                            chatView.appendMessage("AI Assistant", message.getAiResponse());
+                        }
                     }
                 }
             }

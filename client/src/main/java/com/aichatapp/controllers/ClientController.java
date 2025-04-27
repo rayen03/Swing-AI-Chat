@@ -86,7 +86,10 @@ public class ClientController {
     }
 
     public String sendMessage(String message) {
+        System.out.println("Sending message with session ID: " + currentSessionId);
+
         if (currentSessionId == -1) {
+            System.out.println("No session selected, creating new one");
             createNewSession("New Chat");
         }
 

@@ -1,0 +1,20 @@
+$ curl -X POST "https://api.groq.com/openai/v1/chat/completions"
+   -H "Authorization: Bearer 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"
+   -H "Content-Type: application/json"
+   -d '{"messages": [{"role": "user", "content": "what is the capital of tunisia"}], "model": "llama3-8b-8192"}'
+
+
+{"id":"chatcmpl-feeea814-4e09-4241-8cb1-ff6af5c05b3e","object":"chat.completion",
+"created":1745796039,
+"model":"llama3-8b-8192",
+"choices":[{"index":0,"message":{"role":"assistant","
+content":"The capital of Tunisia is Tunis."},
+"logprobs":null,"finish_reason":"stop"}],
+"usage":{"queue_time":0.162602154,
+"prompt_tokens":17,"prompt_time":0.002576568,
+"completion_tokens":8,
+"completion_time":0.006666667,
+"total_tokens":25,
+"total_time":0.009243235},
+"usage_breakdown":{"models":null},
+"system_fingerprint":"fp_dadc9d6142","x_groq":{"id":"req_01jswrv0h4fhbt6vkbb8f916fj"}}

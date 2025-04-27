@@ -87,11 +87,17 @@ public class ChatService {
         return messages;
     }
     private boolean sessionExists(int sessionId) {
+        if (sessionId <= 0) return false;
+
         String sql = "SELECT 1 FROM chat_sessions WHERE session_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, sessionId);
-            return stmt.executeQuery().next();
+            boolean exists = stmt.executeQuery().next();
+            if (!exists) {
+                logger.error("Session with ID {} does not exist", sessionId);
+            }
+            return exists;
         } catch (SQLException e) {
             logger.error("Session validation failed", e);
             return false;

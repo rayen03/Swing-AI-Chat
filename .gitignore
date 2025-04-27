@@ -38,3 +38,6 @@ out/
 # System Files
 .DS_Store
 Thumbs.db
+
+#misc
+testquery.txt
