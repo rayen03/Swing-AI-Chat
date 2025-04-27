@@ -78,6 +78,23 @@ public class UserService {
             return false;
         }
     }
+    public int getUserIdByUsername(String username) {
+        String sql = "SELECT user_id FROM users WHERE username = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("user_id");
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error retrieving user ID for username: {}", username, e);
+        }
+        return -1;
+    }
 
     private String hashPassword(String password) {
 

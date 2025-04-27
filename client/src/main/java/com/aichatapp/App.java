@@ -1,11 +1,13 @@
 package com.aichatapp;
 
 import com.aichatapp.controllers.ClientController;
+import com.aichatapp.models.ChatMessage;
 import com.aichatapp.views.ChatView;
 import com.aichatapp.views.LoginView;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.ArrayList;
 
 /**
  * Hello world!
@@ -59,8 +61,19 @@ public class App {
 
         if (controller.login(username, password)) {
             // Load user sessions
-            // For now, just add a dummy session
-            chatView.addSession("Default Session");
+            ArrayList<String> sessions = (ArrayList<String>) controller.getUserSessions();
+            if (sessions.isEmpty()) {
+                // Create a default session if user has none
+                int sessionId = controller.createNewSession("Default Session");
+                if (sessionId != -1) {
+                    chatView.addSession("Default Session");
+                }
+            } else {
+                // Add all existing sessions to the view
+                for (String session : sessions) {
+                    chatView.addSession(session);
+                }
+            }
             cardLayout.show(cards, "CHAT");
         } else {
             JOptionPane.showMessageDialog(frame, "Login failed. Please check your credentials.");
@@ -103,9 +116,22 @@ public class App {
     private void handleSessionSelection() {
         int selectedIndex = chatView.getSelectedSessionIndex();
         if (selectedIndex != -1) {
-            // In a real app, you would load the chat history for this session
-            chatView.clearChat();
-            chatView.appendMessage("System", "Session " + (selectedIndex + 1) + " selected");
+            String sessionName = chatView.getSelectedSessionName();
+            int sessionId = controller.getSessionIdByName(sessionName);
+
+            if (sessionId != -1 && controller.selectSession(sessionId)) {
+                chatView.clearChat();
+
+                // Load chat history for this session
+                ArrayList<ChatMessage> history = (ArrayList<ChatMessage>) controller.getChatHistory(sessionId);
+                for (ChatMessage message : history) {
+                    if (message.isUserMessage()) {
+                        chatView.appendMessage("You", message.getUserMessage());
+                    } else {
+                        chatView.appendMessage("AI Assistant", message.getAiResponse());
+                    }
+                }
+            }
         }
     }
 

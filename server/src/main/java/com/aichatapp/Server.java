@@ -142,6 +142,13 @@ public class Server {
                             case "get_history":
                                 handleHistoryRequest(jsonRequest, response);
                                 break;
+                            case "get_sessions":
+                                handleGetSessions(jsonRequest, response);
+                                break;
+
+                            case "create_session":
+                                handleCreateSession(jsonRequest, response);
+                                break;
 
                             default:
                                 response.addProperty("success", false);
@@ -267,6 +274,59 @@ public class Server {
             }
         }
 
+        private void handleGetSessions(JsonObject request, JsonObject response) {
+            String username = request.get("username").getAsString();
+
+            try {
+                // Get the user ID
+                int userId = userService.getUserIdByUsername(username);
+                if (userId == -1) {
+                    response.addProperty("success", false);
+                    response.addProperty("error", "User not found");
+                    return;
+                }
+
+                // Get sessions for this user
+                SessionService sessionService = new SessionService();
+                List<JsonObject> sessions = sessionService.getUserSessions(userId);
+
+                response.addProperty("success", true);
+                response.add("sessions", gson.toJsonTree(sessions));
+
+            } catch (Exception e) {
+                logger.error("Failed to get sessions for user: {}", username, e);
+                response.addProperty("success", false);
+                response.addProperty("error", "Error retrieving sessions");
+            }
+        }
+
+        private void handleCreateSession(JsonObject request, JsonObject response) {
+            String username = request.get("username").getAsString();
+            String sessionName = request.get("sessionName").getAsString();
+
+            try {
+                // Get the user ID
+                int userId = userService.getUserIdByUsername(username);
+                if (userId == -1) {
+                    response.addProperty("success", false);
+                    response.addProperty("error", "User not found");
+                    return;
+                }
+
+                // Create the session
+                SessionService sessionService = new SessionService();
+                int sessionId = sessionService.createSession(userId, sessionName);
+
+                response.addProperty("success", sessionId > 0);
+                response.addProperty("sessionId", sessionId);
+
+            } catch (Exception e) {
+                logger.error("Failed to create session for user: {}", username, e);
+                response.addProperty("success", false);
+                response.addProperty("error", "Error creating session");
+            }
+        }
+
         private void handleHistoryRequest(JsonObject request, JsonObject response) {
             int sessionId = request.get("sessionId").getAsInt();
 
@@ -281,7 +341,7 @@ public class Server {
                 response.addProperty("error", "History retrieval error");
             }
         }
-        final String API_KEY = "key";
+        final String API_KEY = "";
         private final List<JsonObject> messageHistory = new ArrayList<>();
 
         private String callAIApi(String userMessage) {

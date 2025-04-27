@@ -4,6 +4,8 @@ import javax.swing.*;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ChatView extends JPanel {
     private JTextArea chatArea;
@@ -69,6 +71,23 @@ public class ChatView extends JPanel {
 
     public void addSession(String sessionName) {
         sessionsModel.addElement(sessionName);
+        // Select the new session
+        sessionsList.setSelectedIndex(sessionsModel.size() - 1);
+    }
+    private Map<String, Integer> sessionIdMap = new HashMap<>();
+
+    public void addSession(String sessionName, int sessionId) {
+        sessionsModel.addElement(sessionName);
+        sessionIdMap.put(sessionName, sessionId);
+    }
+
+    public int getSelectedSessionId() {
+        String selectedName = sessionsList.getSelectedValue();
+        return sessionIdMap.getOrDefault(selectedName, -1);
+    }
+
+    public String getSelectedSessionName() {
+        return sessionsList.getSelectedValue();
     }
 
     public int getSelectedSessionIndex() {

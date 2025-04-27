@@ -1,16 +1,20 @@
 package com.aichatapp.services;
 
 import com.aichatapp.models.DatabaseConnection;
+import com.google.gson.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SessionService {
     private static final Logger logger = LoggerFactory.getLogger(SessionService.class);
 
     public int createSession(int userId, String sessionName) {
-        String sql = "INSERT INTO sessions (user_id, session_name, created_at) VALUES (?, ?, NOW())";
+        String sql = "INSERT INTO chat_sessions (user_id, session_name, created_at) VALUES (?, ?, NOW())";
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
@@ -53,5 +57,27 @@ public class SessionService {
             logger.error("Session validation failed", e);
             return false;
         }
+    }
+    public List<JsonObject> getUserSessions(int userId) {
+        List<JsonObject> sessions = new ArrayList<>();
+        String sql = "SELECT session_id, session_name, created_at FROM chat_sessions WHERE user_id = ? ORDER BY created_at DESC";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, userId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    JsonObject session = new JsonObject();
+                    session.addProperty("id", rs.getInt("session_id"));
+                    session.addProperty("name", rs.getString("session_name"));
+                    session.addProperty("created", rs.getTimestamp("created_at").toString());
+                    sessions.add(session);
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error retrieving sessions for user ID: {}", userId, e);
+        }
+        return sessions;
     }
 }

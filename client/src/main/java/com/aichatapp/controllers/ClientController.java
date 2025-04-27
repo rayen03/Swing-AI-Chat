@@ -134,7 +134,69 @@ public class ClientController {
         }
         return -1;
     }
+    public List<String> getUserSessions() {
+        if (currentUsername == null || currentUsername.isEmpty()) {
+            return new ArrayList<>();
+        }
 
+        JsonObject request = new JsonObject();
+        request.addProperty("action", "get_sessions");
+        request.addProperty("username", currentUsername);
+
+        out.println(gson.toJson(request));
+
+        try {
+            String response = in.readLine();
+            JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
+            if (jsonResponse.get("success").getAsBoolean()) {
+                Type listType = new TypeToken<List<String>>(){}.getType();
+                return gson.fromJson(jsonResponse.get("sessions"), listType);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return new ArrayList<>();
+    }
+    public boolean selectSession(int sessionId) {
+        currentSessionId = sessionId;
+
+        JsonObject request = new JsonObject();
+        request.addProperty("action", "select_session");
+        request.addProperty("sessionId", sessionId);
+
+        out.println(gson.toJson(request));
+
+        try {
+            String response = in.readLine();
+            JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
+            return jsonResponse.get("success").getAsBoolean();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    public int getSessionIdByName(String sessionName) {
+        // In a real implementation, you'd query the server
+        // For simplicity, you could maintain a local map of session names to IDs
+
+        JsonObject request = new JsonObject();
+        request.addProperty("action", "get_session_id");
+        request.addProperty("username", currentUsername);
+        request.addProperty("sessionName", sessionName);
+
+        out.println(gson.toJson(request));
+
+        try {
+            String response = in.readLine();
+            JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
+            if (jsonResponse.get("success").getAsBoolean()) {
+                return jsonResponse.get("sessionId").getAsInt();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
     public List<ChatMessage> getChatHistory(int sessionId) {
         JsonObject request = new JsonObject();
         request.addProperty("action", "get_history");
@@ -155,4 +217,5 @@ public class ClientController {
         }
         return new ArrayList<>();
     }
+
 }
