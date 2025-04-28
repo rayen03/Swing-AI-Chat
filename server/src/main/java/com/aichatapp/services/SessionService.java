@@ -75,6 +75,7 @@ public class SessionService {
                     sessions.add(session);
                 }
             }
+            logger.info("Retrieved {} sessions for user ID: {}", sessions.size(), userId);
         } catch (SQLException e) {
             logger.error("Error retrieving sessions for user ID: {}", userId, e);
         }

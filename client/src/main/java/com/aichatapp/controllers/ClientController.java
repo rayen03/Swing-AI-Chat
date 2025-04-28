@@ -2,6 +2,7 @@ package com.aichatapp.controllers;
 
 import com.aichatapp.models.ChatMessage;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
@@ -13,7 +14,9 @@ import java.io.PrintWriter;
 import java.lang.reflect.Type;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ClientController {
     private Socket socket;
@@ -137,8 +140,10 @@ public class ClientController {
         }
         return -1;
     }
+    private Map<String, Integer> sessionIdMap = new HashMap<>();
     public List<String> getUserSessions() {
         if (currentUsername == null || currentUsername.isEmpty()) {
+            System.err.println("Cannot get sessions: Not logged in");
             return new ArrayList<>();
         }
 
@@ -146,20 +151,37 @@ public class ClientController {
         request.addProperty("action", "get_sessions");
         request.addProperty("username", currentUsername);
 
+        System.out.println("Sending get_sessions request for user: " + currentUsername);
         out.println(gson.toJson(request));
 
         try {
             String response = in.readLine();
+            System.out.println("Received get_sessions response: " + response);
             JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
             if (jsonResponse.get("success").getAsBoolean()) {
-                Type listType = new TypeToken<List<String>>(){}.getType();
-                return gson.fromJson(jsonResponse.get("sessions"), listType);
+                // Server returns an array of JsonObjects, not just names
+                JsonArray sessionsArray = jsonResponse.getAsJsonArray("sessions");
+                List<String> sessionNames = new ArrayList<>();
+
+                // Extract session names and store session IDs
+                for (int i = 0; i < sessionsArray.size(); i++) {
+                    JsonObject session = sessionsArray.get(i).getAsJsonObject();
+                    String sessionName = session.get("name").getAsString();
+                    int sessionId = session.get("id").getAsInt();
+
+                    // Store mapping of session name to ID
+                    sessionIdMap.put(sessionName, sessionId);
+                    sessionNames.add(sessionName);
+                }
+
+                return sessionNames;
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
         return new ArrayList<>();
     }
+
     public boolean selectSession(int sessionId) {
         currentSessionId = sessionId;
 
@@ -179,9 +201,12 @@ public class ClientController {
         return false;
     }
     public int getSessionIdByName(String sessionName) {
-        // In a real implementation, you'd query the server
-        // For simplicity, you could maintain a local map of session names to IDs
+        // check locally
+        if (sessionIdMap.containsKey(sessionName)) {
+            return sessionIdMap.get(sessionName);
+        }
 
+        // Otherwise query the server
         JsonObject request = new JsonObject();
         request.addProperty("action", "get_session_id");
         request.addProperty("username", currentUsername);
@@ -193,13 +218,17 @@ public class ClientController {
             String response = in.readLine();
             JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
             if (jsonResponse.get("success").getAsBoolean()) {
-                return jsonResponse.get("sessionId").getAsInt();
+                int sessionId = jsonResponse.get("sessionId").getAsInt();
+                // Cache it for future use
+                sessionIdMap.put(sessionName, sessionId);
+                return sessionId;
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
         return -1;
     }
+
     public List<ChatMessage> getChatHistory(int sessionId) {
         JsonObject request = new JsonObject();
         request.addProperty("action", "get_history");

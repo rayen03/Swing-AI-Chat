@@ -276,11 +276,13 @@ public class Server {
 
         private void handleGetSessions(JsonObject request, JsonObject response) {
             String username = request.get("username").getAsString();
+            logger.info("Getting sessions for user: {}", username);
 
             try {
                 // Get the user ID
                 int userId = userService.getUserIdByUsername(username);
                 if (userId == -1) {
+                    logger.warn("User not found for username: {}", username);
                     response.addProperty("success", false);
                     response.addProperty("error", "User not found");
                     return;
@@ -289,6 +291,7 @@ public class Server {
                 // Get sessions for this user
                 SessionService sessionService = new SessionService();
                 List<JsonObject> sessions = sessionService.getUserSessions(userId);
+                logger.info("Found {} sessions for user: {}", sessions.size(), username);
 
                 response.addProperty("success", true);
                 response.add("sessions", gson.toJsonTree(sessions));

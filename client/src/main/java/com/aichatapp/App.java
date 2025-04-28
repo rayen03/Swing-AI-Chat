@@ -64,14 +64,34 @@ public class App {
             ArrayList<String> sessions = (ArrayList<String>) controller.getUserSessions();
             if (sessions.isEmpty()) {
                 // Create a default session if user has none
+                System.out.println("No sessions found for user, creating default session");
                 int sessionId = controller.createNewSession("Default Session");
                 if (sessionId != -1) {
-                    chatView.addSession("Default Session");
+                    chatView.addSession("Default Session", sessionId); // Pass both name and ID
+                    controller.selectSession(sessionId); // Make sure it's selected
+                    System.out.println("Default session created with ID: " + sessionId);
+                } else {
+                    System.err.println("Failed to create default session");
                 }
             } else {
                 // Add all existing sessions to the view
-                for (String session : sessions) {
-                    chatView.addSession(session);
+                System.out.println("Found " + sessions.size() + " existing sessions");
+                for (String sessionName : sessions) {
+                    int sessionId = controller.getSessionIdByName(sessionName);
+                    if (sessionId != -1) {
+                        chatView.addSession(sessionName, sessionId);
+                        System.out.println("Added session: " + sessionName + " with ID: " + sessionId);
+                    } else {
+                        System.err.println("Could not get ID for session: " + sessionName);
+                    }
+                }
+
+                // Select the first session
+                if (!sessions.isEmpty()) {
+                    String firstSession = sessions.get(0);
+                    int sessionId = controller.getSessionIdByName(firstSession);
+                    controller.selectSession(sessionId);
+                    System.out.println("Selected first session: " + firstSession + " with ID: " + sessionId);
                 }
             }
             cardLayout.show(cards, "CHAT");
