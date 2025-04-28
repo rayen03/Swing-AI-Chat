@@ -25,6 +25,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -148,6 +151,13 @@ public class Server {
 
                             case "create_session":
                                 handleCreateSession(jsonRequest, response);
+                                break;
+                            case "select_session":
+                                handleSelectSession(jsonRequest, response);
+                                break;
+
+                            case "get_session_id":
+                                handleGetSessionId(jsonRequest, response);
                                 break;
 
                             default:
@@ -405,6 +415,69 @@ public class Server {
             } catch (IOException e) {
                 e.printStackTrace();
                 throw new RuntimeException("Failed to call Groq AI API", e);
+            }
+        }
+        private void handleSelectSession(JsonObject request, JsonObject response) {
+            int sessionId = request.get("sessionId").getAsInt();
+
+            // Validate that the session exists
+            String sql = "SELECT 1 FROM chat_sessions WHERE session_id = ?";
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setInt(1, sessionId);
+                ResultSet rs = stmt.executeQuery();
+                boolean exists = rs.next();
+
+                response.addProperty("success", exists);
+                if (!exists) {
+                    response.addProperty("error", "Session not found");
+                    logger.warn("Attempt to select non-existent session: {}", sessionId);
+                } else {
+                    logger.info("Session selected: {}", sessionId);
+                }
+            } catch (Exception e) {
+                logger.error("Error selecting session", e);
+                response.addProperty("success", false);
+                response.addProperty("error", "Database error");
+            }
+        }
+
+        private void handleGetSessionId(JsonObject request, JsonObject response) {
+            String username = request.get("username").getAsString();
+            String sessionName = request.get("sessionName").getAsString();
+
+            try {
+                // Get user ID first
+                int userId = userService.getUserIdByUsername(username);
+                if (userId == -1) {
+                    response.addProperty("success", false);
+                    response.addProperty("error", "User not found");
+                    return;
+                }
+
+                // Now get session ID by name and user ID
+                String sql = "SELECT session_id FROM chat_sessions WHERE user_id = ? AND session_name = ? LIMIT 1";
+                try (Connection conn = DatabaseConnection.getConnection();
+                     PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    stmt.setInt(1, userId);
+                    stmt.setString(2, sessionName);
+                    ResultSet rs = stmt.executeQuery();
+
+                    if (rs.next()) {
+                        int sessionId = rs.getInt("session_id");
+                        response.addProperty("success", true);
+                        response.addProperty("sessionId", sessionId);
+                        logger.info("Found session ID {} for user {} and name {}", sessionId, username, sessionName);
+                    } else {
+                        response.addProperty("success", false);
+                        response.addProperty("error", "Session not found");
+                        logger.warn("No session found for user {} with name {}", username, sessionName);
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Error getting session ID", e);
+                response.addProperty("success", false);
+                response.addProperty("error", "Database error");
             }
         }
 
