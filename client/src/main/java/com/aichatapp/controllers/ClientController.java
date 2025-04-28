@@ -126,11 +126,13 @@ public class ClientController {
         request.addProperty("username", currentUsername);
         request.addProperty("sessionName", sessionName);
 
+        System.out.println("sending create sess json for user: to server    " + currentUsername);//debug
         out.println(gson.toJson(request));
 
         try {
             String response = in.readLine();
             JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
+            System.out.println("Sess creation response: " + jsonResponse.toString());//debug
             if (jsonResponse.get("success").getAsBoolean()) {
                 currentSessionId = jsonResponse.get("sessionId").getAsInt();
                 return currentSessionId;

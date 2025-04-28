@@ -320,6 +320,7 @@ public class Server {
             try {
                 // Get the user ID
                 int userId = userService.getUserIdByUsername(username);
+                System.out.println("User ID for " + username + ": " + userId);// debug check userId
                 if (userId == -1) {
                     response.addProperty("success", false);
                     response.addProperty("error", "User not found");
@@ -354,6 +355,7 @@ public class Server {
                 response.addProperty("error", "History retrieval error");
             }
         }
+
         final String API_KEY = "";
         private final List<JsonObject> messageHistory = new ArrayList<>();
 
